@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Photos</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+  <style>
+    :root {
+      --blue: #1a73e8;
+      --blue-dark: #1557b0;
+      --text: #202124;
+      --muted: #5f6368;
+      --line: #dadce0;
+      --bg: #f8f9fa;
+      --card: #fff;
+      --shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: "Google Sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    header {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 0 20px;
+      background: var(--card);
+      border-bottom: 1px solid var(--line);
+      box-shadow: 0 1px 2px rgba(60, 64, 67, 0.08);
+      z-index: 20;
+      position: relative;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+      font-weight: 500;
+      letter-spacing: -0.2px;
+      min-width: 120px;
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #1a73e8, #34a853 70%);
+      box-shadow: var(--shadow);
+    }
+
+    nav {
+      display: flex;
+      background: #e8eaed;
+      border-radius: 999px;
+      padding: 3px;
+    }
+
+    nav button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-weight: 500;
+      padding: 8px 18px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    nav button.active {
+      background: var(--card);
+      color: var(--blue);
+      box-shadow: 0 1px 2px rgba(60, 64, 67, 0.2);
+    }
+
+    .counts {
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    main { height: calc(100% - 64px); position: relative; }
+
+    .view {
+      position: absolute;
+      inset: 0;
+      display: none;
+    }
+
+    .view.active { display: block; }
+
+    #map { height: 100%; background: #e6eef5; z-index: 0; }
+    .leaflet-container { z-index: 0; }
+
+    .tile-warning {
+      display: none;
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 25;
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      max-width: min(520px, 90%);
+    }
+
+    .tile-warning.show { display: block; }
+
+    #gallery-view {
+      overflow: auto;
+      padding: 24px 28px 48px;
+    }
+
+    .day-group { margin-bottom: 32px; }
+
+    .day-group h2 {
+      margin: 0 0 14px;
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+      gap: 8px;
+    }
+
+    .thumb {
+      position: relative;
+      aspect-ratio: 1;
+      border: 0;
+      padding: 0;
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      background: #e8eaed;
+    }
+
+    .thumb img,
+    .thumb video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .thumb:hover { outline: 3px solid var(--blue); outline-offset: 0; }
+
+    .badge {
+      position: absolute;
+      left: 8px;
+      bottom: 8px;
+      background: rgba(32, 33, 36, 0.72);
+      color: #fff;
+      font-size: 11px;
+      padding: 3px 7px;
+      border-radius: 999px;
+    }
+
+    .empty {
+      max-width: 420px;
+      margin: 80px auto;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .photo-pin {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      border: 3px solid #fff;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      background: #1a73e8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 18px;
+    }
+
+    .photo-pin img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .photo-pin-wrap { background: none !important; border: 0 !important; }
+    .photo-pin-wrap .pin-tip {
+      width: 10px;
+      height: 10px;
+      background: #fff;
+      transform: rotate(45deg);
+      margin: -8px auto 0;
+      box-shadow: 1px 1px 1px rgba(60, 64, 67, 0.25);
+    }
+
+    .cluster-wrap { background: none !important; border: 0 !important; }
+    .cluster {
+      width: 48px;
+      height: 48px;
+      position: relative;
+    }
+
+    .cluster-thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--blue);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      border: 3px solid #fff;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .cluster-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .cluster-count {
+      position: absolute;
+      right: -4px;
+      top: -4px;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 5px;
+      border-radius: 999px;
+      background: var(--blue);
+      border: 2px solid #fff;
+      color: #fff;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .leaflet-popup-content-wrapper {
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      padding: 0;
+    }
+
+    .leaflet-popup-content { margin: 0; width: 220px !important; }
+    .popup-card { cursor: pointer; }
+    .popup-card img,
+    .popup-card video {
+      width: 100%;
+      height: 140px;
+      object-fit: cover;
+      display: block;
+      background: #111;
+    }
+    .popup-card .info { padding: 10px 12px 12px; }
+    .popup-card .name { font-size: 13px; font-weight: 500; }
+    .popup-card .when { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    #lightbox,
+    #stack-panel {
+      position: fixed;
+      z-index: 100000;
+    }
+
+    #lightbox {
+      inset: 0;
+      background: rgba(32, 33, 36, 0.92);
+      display: none;
+      color: #fff;
+    }
+
+    #lightbox.open { display: flex; flex-direction: column; }
+
+    .lb-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 18px;
+    }
+
+    .lb-bar .caption { font-size: 14px; }
+    .lb-bar .sub { color: #c7c7c7; font-size: 12px; margin-top: 2px; }
+    .lb-bar .spacer { flex: 1; }
+
+    .lb-bar button,
+    .lb-nav {
+      appearance: none;
+      border: 0;
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 20px;
+    }
+
+    .lb-stage {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 72px 28px;
+      min-height: 0;
+    }
+
+    .lb-stage img,
+    .lb-stage video {
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 8px;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    }
+
+    .lb-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    .lb-nav.prev { left: 16px; }
+    .lb-nav.next { right: 16px; }
+
+    .map-link {
+      appearance: none;
+      border: 0;
+      background: var(--blue);
+      color: #fff;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .map-link[hidden] { display: none; }
+
+    #stack-panel {
+      display: none;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      width: min(640px, calc(100% - 32px));
+      background: var(--card);
+      color: var(--text);
+      border-radius: 16px;
+      box-shadow: 0 8px 28px rgba(32, 33, 36, 0.28);
+      padding: 14px 16px 16px;
+    }
+
+    #stack-panel.open { display: block; }
+
+    .stack-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .stack-head h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    .stack-head .spacer { flex: 1; }
+
+    .stack-head button {
+      appearance: none;
+      border: 0;
+      background: #e8eaed;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 18px;
+    }
+
+    .stack-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+      gap: 8px;
+      max-height: 240px;
+      overflow: auto;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="brand-mark"></span> Photos</div>
+    <nav>
+      <button type="button" id="btn-map" class="active">Map</button>
+      <button type="button" id="btn-gallery">Gallery</button>
+    </nav>
+    <div class="counts" id="counts"></div>
+  </header>
+  <main>
+    <section id="map-view" class="view active">
+      <div id="map"></div>
+      <div class="tile-warning" id="tile-warning">
+        Map tiles were blocked in this browser. Close this file and run
+        <code>python serve_viewer.py</code> from the photo-v2 folder, or double-click
+        <code>$Open-Photos.cmd</code> in this directory.
+      </div>
+    </section>
+    <section id="gallery-view" class="view">
+      <div id="gallery"></div>
+    </section>
+  </main>
+  <div id="lightbox" aria-modal="true" role="dialog">
+    <div class="lb-bar">
+      <div>
+        <div class="caption" id="lb-title"></div>
+        <div class="sub" id="lb-sub"></div>
+      </div>
+      <div class="spacer"></div>
+      <button type="button" class="map-link" id="lb-map" hidden>Show on map</button>
+      <button type="button" id="lb-close" aria-label="Close">×</button>
+    </div>
+    <button type="button" class="lb-nav prev" id="lb-prev" aria-label="Previous">‹</button>
+    <div class="lb-stage" id="lb-stage"></div>
+    <button type="button" class="lb-nav next" id="lb-next" aria-label="Next">›</button>
+  </div>
+  <div id="stack-panel" aria-label="Photos at this location">
+    <div class="stack-head">
+      <h2 id="stack-title">Photos at this location</h2>
+      <div class="spacer"></div>
+      <button type="button" id="stack-close" aria-label="Close">×</button>
+    </div>
+    <div class="stack-grid" id="stack-grid"></div>
+  </div>
+  <script src="$thumbs.js"></script>
+  <script>window.PHOTO_ITEMS = %%ITEMS%%;</script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script>
+    (function () {
+      const items = (window.PHOTO_ITEMS || []).map(function (item, index) {
+        item.index = index;
+        return item;
+      });
+      const located = items.filter(function (item) {
+        return item.latitude != null && item.longitude != null;
+      });
+
+      const mapView = document.getElementById("map-view");
+      const galleryView = document.getElementById("gallery-view");
+      const btnMap = document.getElementById("btn-map");
+      const btnGallery = document.getElementById("btn-gallery");
+      const lightbox = document.getElementById("lightbox");
+      const lbStage = document.getElementById("lb-stage");
+      const lbTitle = document.getElementById("lb-title");
+      const lbSub = document.getElementById("lb-sub");
+      const lbMap = document.getElementById("lb-map");
+      const stackPanel = document.getElementById("stack-panel");
+      const stackGrid = document.getElementById("stack-grid");
+      const stackTitle = document.getElementById("stack-title");
+      let activeIndex = 0;
+      let map;
+      let markersByIndex = {};
+      let clusterGroup;
+
+      document.getElementById("counts").textContent =
+        located.length + " on map · " + items.length + " items";
+
+      function esc(value) {
+        return String(value == null ? "" : value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function mediaUrl(item) {
+        return encodeURI(item.path);
+      }
+
+      function thumbUrl(item) {
+        return item.blobUrl || encodeURI(item.thumb || item.path);
+      }
+
+      function thumbMarkup(item) {
+        if (item.thumb) {
+          return '<img src="' + esc(thumbUrl(item)) + '" alt="' +
+            esc(item.filename) + '" loading="lazy">';
+        }
+        if (item.kind === "video") {
+          return '<span class="badge">Video</span>';
+        }
+        return '<img src="' + esc(mediaUrl(item)) + '" alt="' +
+          esc(item.filename) + '" loading="lazy">';
+      }
+
+      function showView(name) {
+        const isMap = name === "map";
+        mapView.classList.toggle("active", isMap);
+        galleryView.classList.toggle("active", !isMap);
+        btnMap.classList.toggle("active", isMap);
+        btnGallery.classList.toggle("active", !isMap);
+        if (isMap && map) {
+          setTimeout(function () { map.invalidateSize(); }, 80);
+        }
+      }
+
+      btnMap.addEventListener("click", function () { showView("map"); });
+      btnGallery.addEventListener("click", function () { showView("gallery"); });
+
+      function closeStack() {
+        stackPanel.classList.remove("open");
+        stackGrid.innerHTML = "";
+      }
+
+      function openStack(stackItems) {
+        stackTitle.textContent = stackItems.length + " items at this location";
+        stackGrid.innerHTML = "";
+        stackItems.forEach(function (item) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "thumb";
+          button.addEventListener("click", function () { renderLightbox(item.index); });
+          button.innerHTML = thumbMarkup(item);
+          if (item.kind === "video" && item.thumb) {
+            button.innerHTML += '<span class="badge">Video</span>';
+          }
+          stackGrid.appendChild(button);
+        });
+        stackPanel.classList.add("open");
+      }
+
+      function renderLightbox(index) {
+        activeIndex = (index + items.length) % items.length;
+        const item = items[activeIndex];
+        if (map) map.closePopup();
+        lbTitle.textContent = item.filename;
+        lbSub.textContent = item.datetime || "No date";
+        lbMap.hidden = item.latitude == null;
+        lbStage.innerHTML = "";
+        if (item.kind === "video") {
+          const video = document.createElement("video");
+          video.src = mediaUrl(item);
+          video.controls = true;
+          video.autoplay = true;
+          lbStage.appendChild(video);
+        } else {
+          const image = document.createElement("img");
+          image.src = mediaUrl(item);
+          image.alt = item.filename;
+          lbStage.appendChild(image);
+        }
+        lightbox.classList.add("open");
+      }
+
+      function closeLightbox() {
+        lightbox.classList.remove("open");
+        lbStage.innerHTML = "";
+      }
+
+      document.getElementById("lb-close").addEventListener("click", closeLightbox);
+      document.getElementById("stack-close").addEventListener("click", closeStack);
+      document.getElementById("lb-prev").addEventListener("click", function () {
+        renderLightbox(activeIndex - 1);
+      });
+      document.getElementById("lb-next").addEventListener("click", function () {
+        renderLightbox(activeIndex + 1);
+      });
+      lbMap.addEventListener("click", function () {
+        const item = items[activeIndex];
+        closeLightbox();
+        showView("map");
+        if (map && item.latitude != null) {
+          map.setView([item.latitude, item.longitude], Math.max(map.getZoom(), 15));
+        }
+      });
+      lightbox.addEventListener("click", function (event) {
+        if (event.target === lightbox) closeLightbox();
+      });
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape" && lightbox.classList.contains("open")) {
+          closeLightbox();
+          return;
+        }
+        if (event.key === "Escape" && stackPanel.classList.contains("open")) {
+          closeStack();
+          return;
+        }
+        if (!lightbox.classList.contains("open")) return;
+        if (event.key === "ArrowLeft") renderLightbox(activeIndex - 1);
+        if (event.key === "ArrowRight") renderLightbox(activeIndex + 1);
+      });
+
+      function pinIcon(item) {
+        const inner = item.thumb || item.kind === "image"
+          ? '<img src="' + esc(thumbUrl(item)) + '" alt="">'
+          : "▶";
+        return L.divIcon({
+          className: "photo-pin-wrap",
+          iconSize: [46, 58],
+          iconAnchor: [23, 58],
+          popupAnchor: [0, -50],
+          html: '<div class="photo-pin">' + inner + '</div><div class="pin-tip"></div>'
+        });
+      }
+
+      function firstImageItem(markers) {
+        for (let i = 0; i < markers.length; i += 1) {
+          const item = markers[i].options.photoItem;
+          if (item && item.thumb) return item;
+        }
+        for (let i = 0; i < markers.length; i += 1) {
+          const item = markers[i].options.photoItem;
+          if (item && item.kind === "image") return item;
+        }
+        return markers[0] && markers[0].options.photoItem;
+      }
+
+      function allSameLocation(markers) {
+        if (markers.length < 2) return true;
+        const origin = markers[0].getLatLng();
+        return markers.every(function (marker) {
+          const point = marker.getLatLng();
+          return Math.abs(point.lat - origin.lat) < 0.00005 &&
+            Math.abs(point.lng - origin.lng) < 0.00005;
+        });
+      }
+
+      function itemsFromMarkers(markers) {
+        return markers.map(function (marker) { return marker.options.photoItem; })
+          .filter(Boolean);
+      }
+
+      function initMap() {
+        map = L.map("map", { zoomControl: true, attributionControl: true });
+        const streets = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
+          maxZoom: 19,
+          attribution: "Tiles &copy; Esri"
+        });
+        const satellite = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+          maxZoom: 19,
+          attribution: "Tiles &copy; Esri"
+        });
+        const topo = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}", {
+          maxZoom: 19,
+          attribution: "Tiles &copy; Esri"
+        });
+        streets.addTo(map);
+        let tileErrors = 0;
+        map.on("tileerror", function () {
+          tileErrors += 1;
+          if (tileErrors >= 4) {
+            document.getElementById("tile-warning").classList.add("show");
+          }
+        });
+        L.control.layers(
+          { "Streets": streets, "Satellite": satellite, "Topo": topo },
+          {},
+          { position: "topright" }
+        ).addTo(map);
+
+        if (!located.length) {
+          map.setView([20, 0], 2);
+          return;
+        }
+
+        clusterGroup = L.markerClusterGroup({
+          showCoverageOnHover: false,
+          maxClusterRadius: 46,
+          spiderfyOnMaxZoom: false,
+          zoomToBoundsOnClick: false,
+          iconCreateFunction: function (group) {
+            const children = group.getAllChildMarkers();
+            const preview = firstImageItem(children);
+            const thumb = preview && (preview.thumb || preview.kind === "image")
+              ? '<img src="' + esc(thumbUrl(preview)) + '" alt="">'
+              : "▶";
+            return L.divIcon({
+              html: '<div class="cluster"><div class="cluster-thumb">' + thumb +
+                '</div><span class="cluster-count">' + group.getChildCount() + "</span></div>",
+              className: "cluster-wrap",
+              iconSize: [48, 48]
+            });
+          }
+        });
+
+        clusterGroup.on("clusterclick", function (event) {
+          const markers = event.layer.getAllChildMarkers();
+          if (allSameLocation(markers) || map.getZoom() >= map.getMaxZoom()) {
+            openStack(itemsFromMarkers(markers));
+            return;
+          }
+          event.layer.zoomToBounds({ padding: [40, 40] });
+        });
+
+        const bounds = [];
+        located.forEach(function (item) {
+          const marker = L.marker([item.latitude, item.longitude], {
+            icon: pinIcon(item),
+            photoItem: item
+          });
+          marker.on("click", function () {
+            if (clusterGroup.getVisibleParent(marker) !== marker) return;
+            renderLightbox(item.index);
+          });
+          markersByIndex[item.index] = marker;
+          clusterGroup.addLayer(marker);
+          bounds.push([item.latitude, item.longitude]);
+        });
+        map.addLayer(clusterGroup);
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+      }
+
+      function dateLabel(item) {
+        if (!item.datetime) return "Undated";
+        const parsed = new Date(item.datetime.replace(" ", "T"));
+        if (isNaN(parsed.getTime())) return item.datetime;
+        return parsed.toLocaleDateString(undefined, {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric"
+        });
+      }
+
+      function initGallery() {
+        const root = document.getElementById("gallery");
+        if (!items.length) {
+          root.innerHTML = '<div class="empty">No pictures or videos were found in this folder.</div>';
+          return;
+        }
+        const groups = new Map();
+        items.forEach(function (item) {
+          const key = dateLabel(item);
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push(item);
+        });
+        root.innerHTML = "";
+        groups.forEach(function (groupItems, label) {
+          const section = document.createElement("section");
+          section.className = "day-group";
+          section.innerHTML = "<h2>" + esc(label) + "</h2>";
+          const grid = document.createElement("div");
+          grid.className = "grid";
+          groupItems.forEach(function (item) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "thumb";
+            button.addEventListener("click", function () { renderLightbox(item.index); });
+            button.innerHTML = thumbMarkup(item);
+            if (item.kind === "video" && item.thumb) {
+              button.innerHTML += '<span class="badge">Video</span>';
+            }
+            grid.appendChild(button);
+          });
+          section.appendChild(grid);
+          root.appendChild(section);
+        });
+      }
+
+      function applyEmbeddedThumbs() {
+        const data = window.PHOTO_THUMB_DATA || {};
+        items.forEach(function (item) {
+          if (!item.thumb || item.blobUrl) {
+            return;
+          }
+          const name = String(item.thumb).replace(/^meta\/thumbs\//, "");
+          if (data[name]) {
+            item.blobUrl = "data:image/jpeg;base64," + data[name];
+          }
+        });
+      }
+
+      function loadThumbZip() {
+        if (typeof JSZip === "undefined") {
+          return Promise.resolve();
+        }
+        return fetch("meta/thumbs.zip")
+          .then(function (response) {
+            if (!response.ok) {
+              throw new Error("thumb zip missing");
+            }
+            return response.arrayBuffer();
+          })
+          .then(function (buffer) {
+            return JSZip.loadAsync(buffer);
+          })
+          .then(function (zip) {
+            return Promise.all(items.map(function (item) {
+              if (!item.thumb) {
+                return null;
+              }
+              const name = String(item.thumb).replace(/^meta\/thumbs\//, "");
+              const entry = zip.file(name);
+              if (!entry) {
+                return null;
+              }
+              return entry.async("blob").then(function (blob) {
+                item.blobUrl = URL.createObjectURL(blob);
+              });
+            }));
+          })
+          .catch(function () {
+            return null;
+          });
+      }
+
+      applyEmbeddedThumbs();
+      const needsZip = items.some(function (item) {
+        return item.thumb && !item.blobUrl;
+      });
+      (needsZip ? loadThumbZip() : Promise.resolve()).then(function () {
+        initMap();
+        initGallery();
+      });
+    })();
+  </script>
+</body>
+</html>
