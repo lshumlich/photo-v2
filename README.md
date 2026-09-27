@@ -1,6 +1,7 @@
 # Photo Rename and Map
 
 This system has three steps:
+
 1. Walks a photo and video directory tree, reads each file’s capture date/time, and renames it to `yyyymmdd_hhmm_nnn` plus the original extension. Files with no capture timestamp are left alone.
 1. Walks a photo and video directory tree, reads each file’s date/time and location and stores it in a meta directory
 1. Creates an html based viewer to see the photos and videos on a map or in date order.
@@ -45,13 +46,13 @@ python rename_photos.py --apply 'C:\path\to\photos'
 # Extract locations and update meta data
 #
 
-python extract_locations.py 'C:\path\to\photos'
+python extract_locations.py 'H:\pictures\2026\2026-09 Bike Trip Europe'
 
 #
 # Serve viewer
 #
 
-python serve_viewer.py 'C:\path\to\photos'
+python create_viewer.py 'H:\pictures\2026\2026-09 Bike Trip Europe'
 
 ```
 
