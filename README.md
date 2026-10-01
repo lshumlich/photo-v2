@@ -54,7 +54,19 @@ python extract_locations.py 'H:\pictures\2026\2026-09 Bike Trip Europe'
 
 python create_viewer.py 'H:\pictures\2026\2026-09 Bike Trip Europe'
 
+#
+# Or run one, two, or all three steps together
+#
+
+python run_me.py "C:\path\to\photos"
+python run_me.py "C:\path\to\photos" --apply
+python run_me.py "C:\path\to\photos" --rename --apply
+python run_me.py "C:\path\to\photos" --locations --viewer
+python run_me.py --viewer
+
 ```
+
+`run_me.py` uses `DEFAULT_DIRECTORY` at the top of the file when you omit the folder. With no step flags it runs all three. Rename is a dry-run unless you pass `--apply`.
 
 Then either open `$Photos.html`, or use `$Open-Photos.cmd` if tiles are blocked.
 
