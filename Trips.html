@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Trips</title>
+  <style>
+    :root {
+      --blue: #1a73e8;
+      --text: #202124;
+      --muted: #5f6368;
+      --line: #dadce0;
+      --bg: #f8f9fa;
+      --card: #fff;
+      --shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      min-height: 100dvh;
+      font-family: "Google Sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    header {
+      height: 64px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+      padding-top: env(safe-area-inset-top);
+      background: var(--card);
+      border-bottom: 1px solid var(--line);
+      box-shadow: 0 1px 2px rgba(60, 64, 67, 0.08);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+      font-weight: 500;
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #1a73e8, #34a853 70%);
+      box-shadow: var(--shadow);
+    }
+
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 20px 16px 32px;
+      padding-bottom: max(32px, env(safe-area-inset-bottom));
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 0 4px 16px;
+    }
+
+    .trips { display: grid; gap: 10px; }
+
+    a.trip {
+      display: block;
+      background: var(--card);
+      color: inherit;
+      text-decoration: none;
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 16px 18px;
+    }
+
+    a.trip:hover .title { color: var(--blue); }
+
+    .title {
+      font-size: 17px;
+      font-weight: 500;
+    }
+
+    .when {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .folder {
+      margin-top: 8px;
+      color: #80868b;
+      font-size: 12px;
+      word-break: break-all;
+    }
+
+    .empty {
+      color: var(--muted);
+      padding: 28px 8px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="brand-mark"></span> Trips</div>
+  </header>
+  <main>
+    <p class="hint">Open a trip to view its map and photos.</p>
+    <div class="trips" id="trips"></div>
+  </main>
+  <script>
+    // Put this file a few folders above each trip. Paths are relative to
+    // THIS file. Clicking a trip opens that folder's $Photos.html, so every
+    // photo, video, and thumb link on the trip page keeps working.
+    //
+    // Example if Trips.html lives at H:\pictures\Trips.html:
+    //   pictures\
+    //     Trips.html          <-- this file
+    //     2026\
+    //       2026-09 Bike Trip Europe\
+    //         $Photos.html
+    //
+    // Then the folder value is "2026/2026-09 Bike Trip Europe"
+
+    const TRIPS = [
+      { title: "Bike Trip Europe", folder: "2026/2026-09 Bike Trip Europe", when: "September 2026" },
+      { title: "Australia", folder: "2025/2025-12 Australia 11-17 to 12-15", when: "November–December 2025" },
+    ];
+
+    const list = document.getElementById("trips");
+    if (!TRIPS.length) {
+      list.innerHTML = '<div class="empty">Add a trip to the TRIPS array in this file.</div>';
+    } else {
+      TRIPS.forEach(function (trip) {
+        const folder = String(trip.folder || "").replace(/\\/g, "/").replace(/\/+$/, "");
+        const href = encodeURI(folder + "/$Photos.html");
+        const link = document.createElement("a");
+        link.className = "trip";
+        link.href = href;
+        link.innerHTML =
+          '<div class="title"></div>' +
+          (trip.when ? '<div class="when"></div>' : "") +
+          '<div class="folder"></div>';
+        link.querySelector(".title").textContent = trip.title || folder;
+        if (trip.when) link.querySelector(".when").textContent = trip.when;
+        link.querySelector(".folder").textContent = folder;
+        list.appendChild(link);
+      });
+    }
+  </script>
+</body>
+</html>
