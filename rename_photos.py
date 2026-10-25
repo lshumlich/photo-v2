@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Rename photos from their capture date/time.
 
-Walks a directory tree, reads the photo's taken-at timestamp, and renames
-matching files to yyyymmdd_hhmm_nnn (plus the original extension). Files
-without a capture date are left alone.
+Walks a directory tree, reads the photo's taken-at timestamp, and prepends
+yyyymmdd_hhmm_nnn plus a space to the existing file name. Files without a
+capture date are left alone. Files that already have that prefix are left
+alone so the step can be re-run safely.
 
 Dry-run is the default. Pass --apply to rename files.
 """
@@ -85,7 +86,8 @@ EXIFREAD_SUBSEC_TAGS = (
 PIL_EXIF_TAGS = (36867, 36868, 306)
 PIL_SUBSEC_TAGS = (37521, 37522, 37520)
 
-ALREADY_NAMED = re.compile(r"^(\d{8}_\d{4})_(\d+)$")
+# yyyymmdd_hhmm_nnn, yyyymmdd_hhmm_nnn originalname, or older _originalname
+ALREADY_NAMED = re.compile(r"^(\d{8}_\d{4})_(\d+)(?:[ _](.+))?$")
 
 
 @dataclass(frozen=True)
@@ -331,6 +333,10 @@ def next_free_sequence(used: set[int]) -> int:
     return sequence
 
 
+def already_renamed(stem: str) -> re.Match[str] | None:
+    return ALREADY_NAMED.fullmatch(stem)
+
+
 def assign_destinations(photos: list[Photo]) -> list[tuple[Path, Path]]:
     groups: dict[tuple[Path, str], list[Photo]] = defaultdict(list)
     for photo in photos:
@@ -339,39 +345,33 @@ def assign_destinations(photos: list[Photo]) -> list[tuple[Path, Path]]:
     renames: list[tuple[Path, Path]] = []
     for (directory, prefix), items in groups.items():
         items.sort(key=lambda photo: (photo.taken_at, photo.path.name.lower()))
-        grouped_paths = {photo.path for photo in items}
         used: set[int] = set()
 
         for entry in directory.iterdir():
-            if not entry.is_file() or entry in grouped_paths:
+            if not entry.is_file():
                 continue
-            match = ALREADY_NAMED.fullmatch(entry.stem)
+            match = already_renamed(entry.stem)
             if match and match.group(1) == prefix:
                 used.add(int(match.group(2)))
 
-        keep: dict[Photo, int] = {}
         pending: list[Photo] = []
         for photo in items:
-            match = ALREADY_NAMED.fullmatch(photo.path.stem)
-            if match and match.group(1) == prefix:
-                sequence = int(match.group(2))
-                if sequence not in used:
-                    used.add(sequence)
-                    keep[photo] = sequence
-                    continue
+            if already_renamed(photo.path.stem):
+                continue
             pending.append(photo)
 
         for photo in pending:
-            sequence = next_free_sequence(used)
-            used.add(sequence)
-            dest = directory / f"{prefix}_{sequence:03d}{photo.path.suffix}"
-            if not same_path(photo.path, dest):
-                renames.append((photo.path, dest))
-
-        for photo, sequence in keep.items():
-            dest = directory / f"{prefix}_{sequence:03d}{photo.path.suffix}"
-            if not same_path(photo.path, dest):
-                renames.append((photo.path, dest))
+            while True:
+                sequence = next_free_sequence(used)
+                dest = directory / (
+                    f"{prefix}_{sequence:03d} {photo.path.stem}{photo.path.suffix}"
+                )
+                used.add(sequence)
+                if dest.exists() and not same_path(photo.path, dest):
+                    continue
+                if not same_path(photo.path, dest):
+                    renames.append((photo.path, dest))
+                break
 
     return renames
 
@@ -456,8 +456,9 @@ def print_plan(
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Rename pictures and videos under a directory to yyyymmdd_hhmm_nnn "
-            "using the capture date/time. Files without a date are left alone."
+            "Prepend yyyymmdd_hhmm_nnn and a space to picture and video names "
+            "using the capture date/time. Files without a date, and files "
+            "that already have the prefix, are left alone."
         )
     )
     parser.add_argument("directory", type=Path, help="Root directory to scan")
