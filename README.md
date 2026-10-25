@@ -2,7 +2,7 @@
 
 This system has three steps:
 
-1. Walks a photo and video directory tree, reads each file’s capture date/time, and renames it to `yyyymmdd_hhmm_nnn` plus the original extension. Files with no capture timestamp are left alone.
+1. Walks a photo and video directory tree, reads each file’s capture date/time, and prepends `yyyymmdd_hhmm_nnn` plus a space to the existing name (`IMG_1234.jpg` → `20230515_1430_001 IMG_1234.jpg`). Files with no capture timestamp are left alone. Files that already have that prefix are skipped, so the rename can be run again with the same result.
 1. Walks a photo and video directory tree, reads each file’s date/time and location and stores it in a meta directory
 1. Creates an html based viewer to see the photos and videos on a map or in date order.
 
@@ -56,17 +56,13 @@ python create_viewer.py 'H:\pictures\2026\2026-09 Bike Trip Europe'
 
 #
 # Or run one, two, or all three steps together
+#    This option requirs you to edit the py file first 
+#    to set appropriate options. See file first
 #
 
-python run_me.py "C:\path\to\photos"
-python run_me.py "C:\path\to\photos" --apply
-python run_me.py "C:\path\to\photos" --rename --apply
-python run_me.py "C:\path\to\photos" --locations --viewer
-python run_me.py --viewer
+python run_me.py "C:\path\to\photos" 
 
 ```
-
-`run_me.py` uses `DEFAULT_DIRECTORY` at the top of the file when you omit the folder. With no step flags it runs all three. Rename is a dry-run unless you pass `--apply`.
 
 Then either open `$Photos.html`, or use `$Open-Photos.cmd` if tiles are blocked.
 
